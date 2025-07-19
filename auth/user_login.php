@@ -1,26 +1,44 @@
 <?php
-// ✅ CORS header agar bisa diakses dari React (localhost:8080)
 header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type");
 header("Content-Type: application/json");
+header("Access-Control-Allow-Headers: Content-Type");
 
-// ✅ Koneksi DB
-include '../koneksi.php';
+$conn = new mysqli("localhost", "root", "", "kua");
 
-// ✅ Ambil data dari frontend (React)
 $data = json_decode(file_get_contents("php://input"), true);
-$email = $data['username']; // dikirim dari form, tapi field-nya email
-$password = $data['password'];
 
-// ✅ Ambil user berdasarkan email
-$result = mysqli_query($conn, "SELECT * FROM users WHERE email='$email'");
-$user = mysqli_fetch_assoc($result);
+$email = $data["username"];
+$password = $data["password"];
 
-// ✅ Cek user dan password
-if ($user && password_verify($password, $user['password'])) {
-  echo json_encode(["success" => true, "role" => $user['role']]);
+$response = [];
+
+$query = "SELECT * FROM users WHERE email = ?";
+$stmt = $conn->prepare($query);
+$stmt->bind_param("s", $email);
+$stmt->execute();
+$result = $stmt->get_result();
+
+if ($result->num_rows === 1) {
+    $user = $result->fetch_assoc();
+    
+    if (password_verify($password, $user["password"])) {
+       $response["success"] = true;
+        $response["user"] = [
+    "id" => $user["id"],
+    "nama" => $user["nama"],
+    "email" => $user["email"],
+    "nik" => $user["nik"],
+    "role" => $user["role"]
+];
+
+    } else {
+        $response["success"] = false;
+        $response["message"] = "Password salah.";
+    }
 } else {
-  echo json_encode(["success" => false, "message" => "Email atau password salah"]);
+    $response["success"] = false;
+    $response["message"] = "Akun tidak ditemukan.";
 }
+
+echo json_encode($response);
 ?>
